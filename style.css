@@ -1,0 +1,29 @@
+body{
+    margin:0;
+    background:#0f172a;
+    color:white;
+    font-family:Arial, sans-serif;
+}
+
+.header{
+    background:#111827;
+    padding:20px;
+    font-size:28px;
+    font-weight:bold;
+}
+
+.desktop{
+    height:calc(100vh - 70px);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+}
+
+.button{
+    background:#2563eb;
+    color:white;
+    padding:15px 30px;
+    border-radius:10px;
+    cursor:pointer;
+}
