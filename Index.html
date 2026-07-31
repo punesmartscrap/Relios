@@ -1,31 +1,1291 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="dark h-full">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ReliOS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>ReliOS Enterprise Operating System</title>
 
-<link rel="stylesheet" href="style.css">
+<!-- CDNs -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          os: {
+            bg: '#06090e',
+            panel: '#0d131f',
+            panel2: '#151d2a',
+            border: '#263346',
+            accent: '#06b6d4',
+            accent2: '#f59e0b',
+            ok: '#10b981',
+            danger: '#ef4444'
+          }
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  :root {
+    --bg: #06090e; --panel: #0d131f; --panel2: #151d2a; --border: #263346;
+    --accent: #06b6d4; --accent2: #f59e0b; --danger: #ef4444; --ok: #10b981;
+  }
+  * { -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: rgba(13,19,31,0.6); }
+  ::-webkit-scrollbar-thumb { background: #263346; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+
+  .canvas-grid {
+    background-image: radial-gradient(circle, #263346 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  .node-card {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05);
+    touch-action: none;
+  }
+  .node-card.selected { box-shadow: 0 0 0 2px var(--accent), 0 8px 24px rgba(6,182,212,0.35); }
+  .port { width:14px; height:14px; border-radius:999px; border:2px solid var(--bg); touch-action:none; }
+  .port:hover, .port.active { transform:scale(1.25); }
+  
+  .os-window {
+    box-shadow: 0 12px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px);
+  }
+  .pulse-dot { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .leaflet-container { background: #0d131f !important; font-family: inherit; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #151d2a !important; color: #f1f5f9 !important; border: 1px solid #263346; }
+</style>
 </head>
+<body class="text-slate-200 select-none h-full w-full relative">
 
-<body>
-
-<div class="header">
-🧠 ReliOS Enterprise Operating System
+<!-- ========================================== -->
+<!-- 00 BOOT SYSTEM & AUTHENTICATION LAYER      -->
+<!-- ========================================== -->
+<div id="bootScreen" class="fixed inset-0 z-[100] bg-slate-950 flex flex-col items-center justify-center transition-opacity duration-700 pointer-events-none opacity-0 hidden">
+  <div class="relative flex items-center justify-center mb-6">
+    <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-2xl shadow-cyan-500/40 animate-bounce">
+      <svg class="w-12 h-12 text-slate-950" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+    </div>
+  </div>
+  <h1 class="text-2xl font-bold tracking-wider text-slate-100 mb-1">ReliOS <span class="text-cyan-400 text-sm font-normal">v6.0 Enterprise Kernel</span></h1>
+  <p class="text-xs text-slate-500 tracking-widest uppercase mb-6">One Platform. Every Business. Every Workflow.</p>
+  
+  <div class="w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3">
+    <div id="bootProgress" class="h-full bg-cyan-400 w-0 transition-all duration-200"></div>
+  </div>
+  <div id="bootLog" class="text-[11px] font-mono text-cyan-400/80 h-4">Initializing Kernel Subsystems...</div>
 </div>
 
-<div class="desktop">
+<div id="loginScreen" class="fixed inset-0 z-[90] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+  <div class="os-window w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl text-center">
+    <div class="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+    <h2 class="text-xl font-bold text-slate-100" id="loginCompName">ReliOS Enterprise OS</h2>
+    <p class="text-xs text-slate-400 mt-1 mb-6">Universal Kernel Session Manager</p>
+    
+    <div class="space-y-3 text-left">
+      <div>
+        <label class="block text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">User Role & Permissions</label>
+        <select id="loginRole" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500">
+          <option value="Super Admin">Super Admin (Kernel Full Access)</option>
+          <option value="Company Owner">Company Owner / MD</option>
+          <option value="Branch Manager">Branch Manager</option>
+          <option value="Sales Manager">Sales Executive</option>
+          <option value="Field Technician">Field Technician</option>
+          <option value="Accountant">Accountant / CA</option>
+          <option value="HR Manager">HR & Payroll Admin</option>
+          <option value="Customer">Customer Portal User</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">Security PIN / Access Key</label>
+        <input type="password" id="loginPin" value="8888" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500" placeholder="••••">
+      </div>
+      <button id="btnLogin" class="w-full py-2.5 mt-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-semibold text-sm rounded-xl transition shadow-lg shadow-cyan-500/20">
+        Authenticate & Boot Kernel
+      </button>
+    </div>
+    <div class="mt-4 text-[11px] text-slate-500 flex justify-between items-center border-t border-slate-800/80 pt-3">
+      <span>IndexedDB Kernel Cache</span>
+      <span class="text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> License Valid</span>
+    </div>
+  </div>
+</div>
 
-<h1>Welcome</h1>
+<!-- ========================================== -->
+<!-- 02 DESKTOP ENVIRONMENT MAIN SURFACE        -->
+<!-- ========================================== -->
+<div id="desktop" class="h-full w-full flex flex-col relative overflow-hidden bg-cover bg-center" style="background-image: radial-gradient(circle at 50% 50%, #0d131f 0%, #06090e 100%);">
+  
+  <!-- TOP SYSTEM BAR -->
+  <header class="h-9 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-3 flex items-center justify-between shrink-0 z-40 text-xs">
+    <div class="flex items-center gap-3 min-w-0">
+      <button id="btnStart" class="flex items-center gap-2 px-2.5 py-1 rounded-lg hover:bg-slate-800 transition text-cyan-400 font-bold shrink-0">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg>
+        <span>ReliOS</span>
+      </button>
+      <div class="h-4 w-px bg-slate-800 shrink-0"></div>
+      
+      <!-- Industry Switcher -->
+      <button id="btnIndustrySwitch" class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 text-[11px] text-cyan-300 transition truncate max-w-[280px]">
+        <span id="currentIndustryBadge" class="truncate font-semibold">📹 CCTV & Security Company</span>
+        <svg class="w-3 h-3 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
 
-<p>ReliOS is starting...</p>
+      <!-- Virtual Desktop Switcher -->
+      <div class="hidden lg:flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-0.5 text-[10px]">
+        <button onclick="ReliOS.switchVirtualDesktop(1)" id="vdesk-1" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium">Desktop 1</button>
+        <button onclick="ReliOS.switchVirtualDesktop(2)" id="vdesk-2" class="px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400">Desktop 2</button>
+      </div>
+    </div>
 
-<div class="button">
-Enter ReliOS
+    <!-- Center Search Command Palette trigger -->
+    <div id="cmdTrigger" class="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 text-[11px] cursor-pointer hover:border-slate-700 w-64 justify-between">
+      <span class="flex items-center gap-1.5 truncate">
+        <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span class="truncate">Search apps, kernel, workflows...</span>
+      </span>
+      <kbd class="bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded text-[10px] shrink-0">Ctrl+K</kbd>
+    </div>
+
+    <div class="flex items-center gap-3 shrink-0">
+      <button id="btnAIQuick" class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-[11px] hover:bg-cyan-500/20 transition">
+        <span>✨ AI Center</span>
+      </button>
+      <div class="flex items-center gap-2 text-slate-400 text-[11px]">
+        <button id="btnNotifToggle" class="relative p-1 hover:text-slate-200">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute top-0 right-0 w-2 h-2 rounded-full bg-cyan-400"></span>
+        </button>
+        <span id="sysClock" class="font-mono text-slate-300 hidden sm:inline">12:00 PM</span>
+        <span id="userBadge" class="bg-slate-800 px-2 py-0.5 rounded-md text-[10px] text-cyan-400 border border-slate-700 font-medium">Super Admin</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- DESKTOP GRID & WINDOW CONTAINER -->
+  <main class="flex-1 relative overflow-hidden p-4" id="desktopSurface">
+    <div id="desktopIcons" class="grid grid-flow-col grid-rows-6 gap-4 auto-cols-max z-10 relative"></div>
+    <div id="windowArea" class="absolute inset-0 pointer-events-none z-20"></div>
+  </main>
+
+  <!-- BOTTOM TASKBAR & DOCK -->
+  <footer class="h-12 border-t border-slate-800/80 bg-slate-950/90 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-40">
+    <div id="taskbarApps" class="flex items-center gap-1.5 overflow-x-auto py-1"></div>
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="btnWidgets" title="System Widgets" class="p-1.5 rounded hover:bg-slate-800 text-cyan-400">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </button>
+      <button id="btnMinimizeAll" title="Show Desktop" class="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<!-- ========================================== -->
+<!-- START MENU & PANELS                        -->
+<!-- ========================================== -->
+<div id="startMenu" class="fixed bottom-14 left-3 z-50 w-96 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-4 hidden backdrop-blur-xl transition-all">
+  <div class="flex items-center gap-3 pb-3 border-b border-slate-800">
+    <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 flex items-center justify-center font-bold">RE</div>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm font-semibold text-slate-100 truncate" id="startUserTitle">ReliOS Enterprise OS</div>
+      <div class="text-[11px] text-slate-400 truncate" id="startUserRole">Kernel v6.0 Active</div>
+    </div>
+    <button id="btnLock" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300" title="Lock Kernel Session">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </button>
+  </div>
+  
+  <div class="py-3">
+    <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Core Kernel Applications</div>
+    <div id="startAppGrid" class="grid grid-cols-4 gap-2 max-h-60 overflow-y-auto pr-1"></div>
+  </div>
+
+  <div class="pt-2 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
+    <button onclick="ReliOS.openApp('settings')" class="hover:text-cyan-400 flex items-center gap-1">⚙️ System Settings</button>
+    <button onclick="ReliOS.openApp('appstore')" class="hover:text-cyan-400 flex items-center gap-1">🏬 App Marketplace</button>
+    <button id="btnBackupDB" class="hover:text-cyan-400 flex items-center gap-1">💾 Backup Kernel DB</button>
+  </div>
+</div>
+
+<!-- NOTIFICATION & AUDIT CENTER -->
+<div id="notifCenter" class="fixed top-9 right-0 bottom-12 w-80 bg-slate-900/95 border-l border-slate-800 z-50 p-4 shadow-2xl transform translate-x-full transition-transform duration-200 backdrop-blur-xl flex flex-col">
+  <div class="flex justify-between items-center pb-3 border-b border-slate-800">
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Kernel Audit & Notifications</h3>
+    <button id="btnClearNotifs" class="text-[11px] text-cyan-400 hover:underline">Clear Logs</button>
+  </div>
+  <div id="notifList" class="flex-1 overflow-y-auto py-3 space-y-2 text-xs"></div>
+</div>
+
+<!-- WIDGETS OVERLAY PANEL -->
+<div id="widgetsPanel" class="fixed bottom-14 right-4 z-40 w-80 bg-slate-900/95 border border-slate-800 rounded-2xl p-4 hidden backdrop-blur-xl shadow-2xl">
+  <div class="text-xs font-bold text-slate-200 mb-3 flex justify-between items-center">
+    <span>📊 Real-time Kernel Widgets</span>
+    <span class="text-[10px] text-cyan-400">Live Telemetry</span>
+  </div>
+  <div class="space-y-3 text-xs">
+    <div class="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+      <div class="text-[10px] text-slate-400">CPU & Memory Usage</div>
+      <div class="w-full h-2 bg-slate-700 rounded-full mt-1.5 overflow-hidden">
+        <div class="h-full bg-cyan-400 w-[28%]"></div>
+      </div>
+      <div class="flex justify-between text-[9px] text-slate-400 mt-1"><span>28% Load</span><span>16GB Ram</span></div>
+    </div>
+    <div class="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+      <div class="text-[10px] text-slate-400">Offline DB Cache</div>
+      <div class="font-mono text-emerald-400 mt-1 font-bold">IndexedDB: 14.2 MB Synced</div>
+    </div>
+  </div>
+</div>
+
+<!-- INDUSTRY SELECTOR MODAL -->
+<div id="industryModal" class="fixed inset-0 z-[80] bg-black/75 backdrop-blur-md hidden items-center justify-center p-4">
+  <div class="os-window w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl p-5 max-h-[90vh] flex flex-col">
+    <div class="flex justify-between items-center pb-3 border-b border-slate-800 shrink-0">
+      <div>
+        <h3 class="text-base font-semibold text-slate-100 flex items-center gap-2">
+          <span>🏬 12 INDUSTRY PROFILES ENGINE</span>
+          <span class="text-xs bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-2 py-0.5 rounded-full font-normal">33+ Business Verticals</span>
+        </h3>
+        <p class="text-xs text-slate-400">Configures Business Modules, AI Personas, Workflows, and CRM Schemas instantly</p>
+      </div>
+      <button id="closeIndustryModal" class="p-1 text-slate-400 hover:text-slate-200 text-lg">✕</button>
+    </div>
+    <div class="py-3 border-b border-slate-800/80 flex gap-2 shrink-0">
+      <div class="relative flex-1">
+        <input type="text" id="industrySearchInput" placeholder="Search profile (e.g. CCTV, Hospital, School, Garage, Hotel, Solar)..." class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+        <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+    </div>
+    <div id="industryTaxonomyList" class="flex-1 overflow-y-auto py-3 space-y-6 pr-1"></div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE MODAL -->
+<div id="cmdModal" class="fixed inset-0 z-[85] bg-black/60 backdrop-blur-sm hidden items-start justify-center pt-20 p-4">
+  <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    <div class="p-3 border-b border-slate-800 flex items-center gap-2">
+      <svg class="w-4 h-4 text-cyan-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="cmdInput" placeholder="Type a command or app name..." class="w-full bg-transparent text-sm text-slate-100 focus:outline-none">
+    </div>
+    <div id="cmdResults" class="max-h-64 overflow-y-auto p-2 space-y-1 text-xs"></div>
+  </div>
+</div>
+
+<!-- TOAST ALERT -->
+<div id="toast" class="fixed top-12 left-1/2 -translate-x-1/2 z-[110] px-4 py-2 rounded-xl text-xs font-medium shadow-2xl hidden transition-all"></div>
+
+<!-- ========================================== -->
+<!-- JAVASCRIPT: UNIVERSAL KERNEL & APPS        -->
+<!-- ========================================== -->
+<script>
+(function(){
+"use strict";
+
+/* ---------------- 01 KERNEL UTILITIES ---------------- */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const uid = (p='id') => p + '_' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function toast(msg, kind='ok') {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.className = 'fixed top-12 left-1/2 -translate-x-1/2 z-[110] px-4 py-2 rounded-xl text-xs font-medium shadow-2xl border transition-all';
+  if(kind==='error') { el.style.background='#3b1418'; el.style.color='#fca5a5'; el.style.borderColor='#7f1d1d'; }
+  else if(kind==='warn') { el.style.background='#3b2a10'; el.style.color='#fcd34d'; el.style.borderColor='#78350f'; }
+  else { el.style.background='#0f2e22'; el.style.color='#6ee7b7'; el.style.borderColor='#065f46'; }
+  el.classList.remove('hidden');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.add('hidden'), 2400);
+}
+
+/* 01 KERNEL: DATABASE ENGINE (IndexedDB) */
+const DB = (function(){
+  const NAME = 'ReliOS_Kernel_DB', VER = 1;
+  let dbp = null;
+  function openDB() {
+    if(dbp) return dbp;
+    dbp = new Promise((resolve, reject) => {
+      const req = indexedDB.open(NAME, VER);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        ['workflows', 'customers', 'tickets', 'invoices', 'inventory', 'employees', 'audit_logs', 'settings', 'plugins'].forEach(store => {
+          if(!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: 'id' });
+        });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbp;
+  }
+  async function tx(store, mode) { const db = await openDB(); return db.transaction(store, mode).objectStore(store); }
+  return {
+    async put(store, obj) { const s = await tx(store,'readwrite'); return new Promise((res,rej)=>{ const r=s.put(obj); r.onsuccess=()=>res(obj); r.onerror=()=>rej(r.error); }); },
+    async get(store, id) { const s = await tx(store,'readonly'); return new Promise((res,rej)=>{ const r=s.get(id); r.onsuccess=()=>res(r.result||null); r.onerror=()=>rej(r.error); }); },
+    async getAll(store) { const s = await tx(store,'readonly'); return new Promise((res,rej)=>{ const r=s.getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); },
+    async del(store, id) { const s = await tx(store,'readwrite'); return new Promise((res,rej)=>{ const r=s.delete(id); r.onsuccess=()=>res(true); r.onerror=()=>rej(r.error); }); }
+  };
+})();
+
+/* ---------------- 12 INDUSTRY PROFILES DATA ---------------- */
+const INDUSTRY_TAXONOMY = [
+  { category: "Security & Surveillance", icon: "📹", items: ["CCTV & Security", "CCTV Dealer", "Fire Alarm", "Access Control", "GPS Tracking"] },
+  { category: "Education", icon: "🎓", items: ["School ERP", "College & University", "Coaching Institute", "Tuition Center"] },
+  { category: "Healthcare", icon: "🏥", items: ["Hospital", "Clinic", "Pharmacy", "Diagnostic Lab"] },
+  { category: "Retail & POS", icon: "🛒", items: ["Retail Store", "Supermarket", "Electronics Shop", "Hardware Store"] },
+  { category: "Restaurants & Food", icon: "🍽️", items: ["Restaurant POS", "Cafe", "Cloud Kitchen", "Bakery"] },
+  { category: "Hospitality & Travel", icon: "🏨", items: ["Hotel & Resort", "Travel Agency", "Event Management"] },
+  { category: "Logistics & Warehouse", icon: "🚚", items: ["Warehouse", "Logistics & Fleet", "Packers & Movers"] },
+  { category: "Manufacturing & Construct", icon: "🏭", items: ["Factory Production", "Builder Construction", "Interior Designer"] },
+  { category: "Automobile & Repair", icon: "🚗", items: ["Car Garage", "Bike Service Center", "Electronics Repair"] },
+  { category: "Professional & Finance", icon: "💼", items: ["CA & Tax Office", "Law Firm", "Consultancy", "Real Estate"] },
+  { category: "Beauty & Wellness", icon: "✂️", items: ["Salon & Spa", "Gym & Fitness"] },
+  { category: "Agriculture & Solar", icon: "☀️", items: ["Solar Installation", "Dairy & Agriculture Farm"] }
+];
+
+/* ---------------- STATE MANAGEMENT ---------------- */
+
+const savedPackages = JSON.parse(
+    localStorage.getItem("ReliOS_Packages") || "{}"
+);
+
+const State = {
+
+    userRole: "Super Admin",
+
+    activeIndustry: "CCTV & Security",
+
+    activeVirtualDesktop: 1,
+
+    activeWindows: {},
+
+    installedPackages: Object.keys(savedPackages).length
+        ? savedPackages
+        : {
+            "CCTV & Security Package": true
+        },
+
+    zIndexCounter: 100,
+
+    workflow: null
+
+};
+
+/* ---------------- PACKAGE REGISTRY ---------------- */
+
+function savePackages(){
+
+    localStorage.setItem(
+        "ReliOS_Packages",
+        JSON.stringify(State.installedPackages)
+    );
+
+}
+
+const PACKAGE_MAP = {
+
+    "CCTV & Security":"CCTV & Security Package",
+
+    "Hospital":"Hospital Package",
+
+    "Clinic":"Hospital Package",
+
+    "School ERP":"School ERP",
+
+    "College & University":"School ERP",
+
+    "Hotel & Resort":"Hotel ERP",
+
+    "Travel Agency":"Hotel ERP",
+
+    "Retail Store":"Retail POS",
+
+    "Supermarket":"Retail POS",
+
+    "Car Garage":"Garage Management",
+
+    "Bike Service Center":"Garage Management",
+
+    "Solar Installation":"Solar Business",
+
+    "Dairy & Agriculture Farm":"Solar Business"
+
+};
+
+/* ---------------- 03 & 04 & 05 ALL APPS REGISTRY ---------------- */
+const APPS = [
+  { id:'dashboard', name:'KPI Dashboard', icon:'📊', color:'from-indigo-500 to-purple-600', cat:'Core Apps' },
+  { id:'crm', name:'CRM & Leads', icon:'🎯', color:'from-emerald-500 to-teal-600', cat:'Business Modules' },
+  { id:'sales', name:'Sales & Invoices', icon:'🧾', color:'from-green-500 to-emerald-700', cat:'Business Modules' },
+  { id:'service', name:'Service & AMC', icon:'🗺️', color:'from-amber-500 to-orange-600', cat:'Business Modules' },
+  { id:'inventory', name:'Inventory & QR', icon:'📦', color:'from-pink-500 to-rose-600', cat:'Business Modules' },
+  { id:'hr', name:'HR & Payroll', icon:'👥', color:'from-blue-500 to-cyan-600', cat:'Business Modules' },
+  { id:'finance', name:'Finance & Tax', icon:'💰', color:'from-emerald-600 to-green-800', cat:'Business Modules' },
+  { id:'ai_center', name:'AI Center Hub', icon:'✨', color:'from-fuchsia-500 to-pink-600', cat:'AI Center' },
+  { id:'automation', name:'Workflow Builder', icon:'⚡', color:'from-cyan-500 to-blue-600', cat:'Automation' },
+  { id:'comm', name:'Comm & WhatsApp', icon:'💬', color:'from-green-500 to-teal-600', cat:'Communication' },
+  { id:'docs', name:'Document Studio', icon:'📝', color:'from-violet-500 to-purple-700', cat:'Documents' },
+  { id:'appstore', name:'App Marketplace', icon:'🏬', color:'from-blue-600 to-indigo-700', cat:'App Store' },
+  { id:'integrations', name:'Integrations & API', icon:'🔌', color:'from-cyan-600 to-teal-700', cat:'Integrations' },
+  { id:'settings', name:'System Settings', icon:'⚙️', color:'from-slate-600 to-slate-800', cat:'Core Apps' }
+];
+
+/* ---------------- 02 DESKTOP WINDOW MANAGER ---------------- */
+function renderDesktopIcons() {
+  const container = $('#desktopIcons');
+  container.innerHTML = APPS.map(app => `
+    <div onclick="ReliOS.openApp('${app.id}')" class="flex flex-col items-center justify-center w-20 h-22 p-2 rounded-xl hover:bg-slate-800/60 cursor-pointer group transition backdrop-blur-sm">
+      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${app.color} flex items-center justify-center text-xl shadow-lg group-hover:scale-105 transition">
+        ${app.icon}
+      </div>
+      <span class="text-[11px] font-medium text-slate-200 mt-1.5 text-center leading-tight line-clamp-2 drop-shadow">${escapeHtml(app.name)}</span>
+    </div>
+  `).join('');
+}
+
+function renderStartMenu() {
+  const grid = $('#startAppGrid');
+  grid.innerHTML = APPS.map(app => `
+    <button onclick="ReliOS.openApp('${app.id}'); $('#startMenu').classList.add('hidden');" class="flex flex-col items-center p-2 rounded-xl hover:bg-slate-800 transition">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr ${app.color} flex items-center justify-center text-base shadow">
+        ${app.icon}
+      </div>
+      <span class="text-[10px] text-slate-300 mt-1 text-center truncate w-full">${escapeHtml(app.name)}</span>
+    </button>
+  `).join('');
+}
+
+function renderIndustryTaxonomyModal() {
+  const container = $('#industryTaxonomyList');
+  if(!container) return;
+  container.innerHTML = INDUSTRY_TAXONOMY.map(cat => `
+    <div>
+      <div class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 border-b border-slate-800/80 pb-1">
+        <span>${cat.icon}</span>
+        <span>${escapeHtml(cat.category)}</span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        ${cat.items.map(item => `
+          <button onclick="ReliOS.setIndustryProfile('${escapeHtml(item)}')" class="p-2.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 hover:border-cyan-500/50 text-left transition text-xs text-slate-200 truncate flex items-center justify-between group">
+            <span class="truncate">${escapeHtml(item)}</span>
+            <span class="text-[10px] opacity-0 group-hover:opacity-100 text-cyan-400 transition">Select</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateTaskbar() {
+  const container = $('#taskbarApps');
+  container.innerHTML = Object.values(State.activeWindows).map(win => `
+    <button onclick="ReliOS.toggleWindowMinimize('${win.id}')" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition ${win.minimized ? 'bg-slate-900/50 border-slate-800 text-slate-400' : 'bg-slate-800 border-cyan-500/50 text-slate-100 shadow-md'}">
+      <span>${win.icon}</span>
+      <span class="font-medium truncate max-w-[100px]">${escapeHtml(win.title)}</span>
+    </button>
+  `).join('');
+}
+
+function bringToFront(winId) {
+  const winEl = $(`#win-${winId}`);
+  if(winEl) {
+    State.zIndexCounter++;
+    winEl.style.zIndex = State.zIndexCounter;
+    if(State.activeWindows[winId]) {
+      State.activeWindows[winId].minimized = false;
+      winEl.classList.remove('hidden');
+      updateTaskbar();
+    }
+  }
+}
+
+function openWindow(appId) {
+  const app = APPS.find(a => a.id === appId);
+  if(!app) return;
+
+  if(State.activeWindows[appId]) {
+    bringToFront(appId);
+    return;
+  }
+
+  State.zIndexCounter++;
+  const winId = appId;
+  State.activeWindows[winId] = { id: winId, title: app.name, icon: app.icon, minimized: false };
+
+  const winEl = document.createElement('div');
+  winEl.id = `win-${winId}`;
+  winEl.className = `os-window absolute bg-slate-900/95 border border-slate-800 rounded-2xl flex flex-col overflow-hidden z-[${State.zIndexCounter}] pointer-events-auto shadow-2xl`;
+  
+  winEl.style.width = window.innerWidth < 768 ? '100%' : '920px';
+  winEl.style.height = window.innerWidth < 768 ? '100%' : '620px';
+  winEl.style.top = window.innerWidth < 768 ? '0px' : '40px';
+  winEl.style.left = window.innerWidth < 768 ? '0px' : `${Math.max(20, (window.innerWidth - 920) / 2)}px`;
+
+  winEl.innerHTML = `
+    <div class="win-header h-10 border-b border-slate-800 bg-slate-950/80 px-4 flex items-center justify-between cursor-move shrink-0">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-base">${app.icon}</span>
+        <span class="text-xs font-semibold text-slate-200 truncate">${escapeHtml(app.name)}</span>
+        <span class="text-[9px] px-2 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700 truncate">${escapeHtml(State.activeIndustry)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="ReliOS.toggleWindowMinimize('${winId}')" class="p-1 hover:bg-slate-800 rounded text-slate-400">➖</button>
+        <button onclick="ReliOS.closeWindow('${winId}')" class="p-1 hover:bg-red-500/20 rounded text-slate-400 hover:text-red-400">✕</button>
+      </div>
+    </div>
+    <div class="win-body flex-1 overflow-auto relative bg-slate-900/80 text-xs" id="body-${winId}"></div>
+  `;
+
+  $('#windowArea').appendChild(winEl);
+  winEl.addEventListener('mousedown', () => bringToFront(winId));
+  attachWindowDrag(winEl);
+  updateTaskbar();
+
+  populateAppContent(appId, `#body-${winId}`);
+  ReliOS.logAudit('Launch App', `${app.name} (${State.activeIndustry})`);
+}
+
+function attachWindowDrag(winEl) {
+  const header = winEl.querySelector('.win-header');
+  let dragging = false, startX, startY, origX, origY;
+  header.addEventListener('mousedown', (e) => {
+    if(e.target.tagName === 'BUTTON') return;
+    dragging = true; startX = e.clientX; startY = e.clientY;
+    origX = winEl.offsetLeft; origY = winEl.offsetTop;
+  });
+  window.addEventListener('mousemove', (e) => {
+    if(!dragging) return;
+    winEl.style.left = `${Math.max(0, origX + (e.clientX - startX))}px`;
+    winEl.style.top = `${Math.max(0, origY + (e.clientY - startY))}px`;
+  });
+  window.addEventListener('mouseup', () => dragging = false);
+}
+
+function marketBadge(status){
+
+const map={
+
+"Installed":"bg-emerald-500/20 text-emerald-400",
+
+"Update Available":"bg-blue-500/20 text-blue-400",
+
+"Not Installed":"bg-slate-700 text-slate-300",
+
+"Premium":"bg-amber-500/20 text-amber-400",
+
+"Community":"bg-cyan-500/20 text-cyan-400",
+
+"Enterprise":"bg-violet-500/20 text-violet-400",
+
+"Beta":"bg-pink-500/20 text-pink-400"
+
+};
+
+return `
+<span class="px-2 py-1 rounded-full text-[10px] ${map[status]}">
+${status}
+</span>
+`;
+
+}
+
+function marketCard(icon,name,version,size,modules,status){
+
+return `
+
+<div class="rounded-2xl border border-slate-700 bg-slate-900 p-4 space-y-3">
+
+<div class="flex justify-between">
+
+<div>
+
+<div class="text-lg">
+${icon}
+</div>
+
+<div class="font-bold text-white">
+${name}
+</div>
+
+<div class="text-[10px] text-slate-400">
+
+Version ${version}
+
+•
+
+${size}
+
 </div>
 
 </div>
 
+${marketBadge(status)}
+
+</div>
+
+<div class="text-[11px] text-slate-400">
+
+Modules Included
+
+</div>
+
+<div class="grid grid-cols-2 gap-1 text-[10px]">
+
+${modules.map(m=>`
+<div>✔ ${m}</div>
+`).join("")}
+
+</div>
+
+<button
+
+onclick="ReliOS.installPackage('${name}')"
+
+class="w-full py-2 rounded-xl bg-cyan-500 text-black font-bold"
+
+>
+
+Install Package
+
+</button>
+
+</div>
+
+`;
+
+}
+
+/* ---------------- DYNAMIC MODULE CONTENT RENDERERS ---------------- */
+function populateAppContent(appId, containerSelector) {
+  const container = $(containerSelector);
+
+  switch(appId) {
+    /* 10 ANALYTICS & 04 DASHBOARD */
+    case 'dashboard':
+      container.innerHTML = `
+        <div class="p-4 space-y-4">
+          <div class="grid grid-cols-4 gap-3">
+            <div class="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+              <div class="text-[10px] text-slate-400 uppercase">Monthly Revenue</div>
+              <div class="text-lg font-bold text-emerald-400 mt-1">₹4,85,200</div>
+              <div class="text-[10px] text-emerald-500 mt-0.5">↑ 18% vs Last Month</div>
+            </div>
+            <div class="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+              <div class="text-[10px] text-slate-400 uppercase">Active Tickets / Orders</div>
+              <div class="text-lg font-bold text-cyan-400 mt-1">24 Pending</div>
+              <div class="text-[10px] text-cyan-500 mt-0.5">4 Critical SLA</div>
+            </div>
+            <div class="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+              <div class="text-[10px] text-slate-400 uppercase">AMC Renewal Rate</div>
+              <div class="text-lg font-bold text-amber-400 mt-1">92.4%</div>
+              <div class="text-[10px] text-amber-500 mt-0.5">14 Renewals Due</div>
+            </div>
+            <div class="p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl">
+              <div class="text-[10px] text-slate-400 uppercase">Resource Load</div>
+              <div class="text-lg font-bold text-purple-400 mt-1">88%</div>
+              <div class="text-[10px] text-purple-500 mt-0.5">Optimal Field Capacity</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 bg-slate-800/40 border border-slate-800 rounded-xl">
+              <h4 class="text-xs font-semibold text-slate-300 mb-3">Revenue & Forecasting Trend</h4>
+              <canvas id="chartRevenue" class="max-h-48"></canvas>
+            </div>
+            <div class="p-4 bg-slate-800/40 border border-slate-800 rounded-xl">
+              <h4 class="text-xs font-semibold text-slate-300 mb-3">${escapeHtml(State.activeIndustry)} Breakdown</h4>
+              <canvas id="chartDist" class="max-h-48"></canvas>
+            </div>
+          </div>
+        </div>`;
+      setTimeout(() => {
+        const c1 = $('#chartRevenue'), c2 = $('#chartDist');
+        if(c1) new Chart(c1, { type:'line', data:{ labels:['Jan','Feb','Mar','Apr','May','Jun'], datasets:[{ label:'Revenue (₹)', data:[240000, 310000, 290000, 410000, 380000, 485200], borderColor:'#06b6d4' }] }, options:{plugins:{legend:{display:false}}} });
+        if(c2) new Chart(c2, { type:'doughnut', data:{ labels:['Services', 'Hardware Sales', 'AMC Contracts', 'Other'], datasets:[{ data:[45,30,15,10], backgroundColor:['#06b6d4','#10b981','#f59e0b','#8b5cf6'] }] }, options:{plugins:{legend:{position:'bottom', labels:{color:'#94a3b8'}}} } });
+      }, 100);
+      break;
+
+    /* 05 BUSINESS MODULE: CRM */
+    case 'crm':
+      container.innerHTML = `
+        <div class="p-4 space-y-4">
+          <div class="flex justify-between items-center"><h3 class="text-sm font-semibold text-slate-200">CRM Leads & Sales Pipeline</h3><button onclick="ReliOS.addCustomerPrompt()" class="px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-xs">+ New Lead</button></div>
+          <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40"><table class="w-full text-left text-xs"><thead class="bg-slate-800/60 text-slate-400"><tr><th class="p-2.5">Company / Customer</th><th class="p-2.5">Contact</th><th class="p-2.5">Pipeline Status</th><th class="p-2.5">Estimated Value</th></tr></thead><tbody class="divide-y divide-slate-800/60"><tr class="hover:bg-slate-800/30"><td class="p-2.5 font-medium text-slate-200">Apex Heights Society</td><td class="p-2.5 text-slate-400">+91 9876543210</td><td class="p-2.5"><span class="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 text-[10px]">Proposal Sent</span></td><td class="p-2.5 text-emerald-400 font-mono">₹1,20,000</td></tr><tr class="hover:bg-slate-800/30"><td class="p-2.5 font-medium text-slate-200">Metro Mall Complex</td><td class="p-2.5 text-slate-400">+91 9123456789</td><td class="p-2.5"><span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px]">Contract Won</span></td><td class="p-2.5 text-emerald-400 font-mono">₹3,45,000</td></tr></tbody></table></div>
+        </div>`;
+      break;
+
+    /* 05 BUSINESS MODULE: SERVICE & MAP */
+    case 'service':
+      container.innerHTML = `
+        <div class="flex h-full w-full">
+          <div class="w-72 border-r border-slate-800 p-3 overflow-y-auto space-y-2 shrink-0 bg-slate-950/40">
+            <div class="text-xs font-semibold text-slate-300 mb-2">Service Tickets & Dispatch</div>
+            <div class="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+              <div class="flex justify-between text-[11px] font-semibold text-cyan-400"><span>Ticket #4092</span><span>Assigned</span></div>
+              <div class="text-xs text-slate-200 mt-1">CCTV NVR Offline</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">Tech: Alex Vance · Site A</div>
+            </div>
+          </div>
+          <div class="flex-1 relative" id="serviceMap"></div>
+        </div>`;
+      setTimeout(() => {
+        const mapEl = $('#serviceMap');
+        if(mapEl) {
+          const map = L.map('serviceMap').setView([19.0760, 72.8777], 12);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+          L.marker([19.0760, 72.8777]).addTo(map).bindPopup('Tech Alex Vance (On Site #4092)');
+        }
+      }, 100);
+      break;
+
+    /* 06 AI CENTER */
+    case 'ai_center':
+      container.innerHTML = `
+        <div class="flex flex-col h-full p-3">
+          <div class="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-950/50 rounded-xl border border-slate-800/80" id="aiChatBox">
+            <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 max-w-[80%]">
+              <div class="font-semibold text-cyan-400 text-[11px] mb-1">✨ ReliOS Universal AI Assistant</div>
+              <div class="text-slate-200 text-xs">Hello! I am active for <strong>${escapeHtml(State.activeIndustry)}</strong>. I can generate invoices, write WhatsApp replies, predict stock, or diagnose technical errors.</div>
+            </div>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <input type="text" id="aiInput" placeholder="Ask AI to write a WhatsApp reply or report..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+            <button onclick="ReliOS.sendAIMessage()" class="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 font-semibold text-xs">Send</button>
+          </div>
+        </div>`;
+      break;
+
+    /* 07 AUTOMATION: RAE ENGINE */
+    case 'automation':
+      container.innerHTML = `
+        <div class="p-4 space-y-3">
+          <div class="flex justify-between items-center"><h3 class="text-sm font-semibold text-slate-200">RAE Automation Engine</h3><button onclick="ReliOS.runRAEWorkflow()" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs">▶ Run Workflow</button></div>
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs space-y-2">
+            <div class="font-bold text-cyan-400">Active Node Flow: ${escapeHtml(State.activeIndustry)} Dispatcher</div>
+            <div class="font-mono text-slate-400">[Trigger: New Ticket] ➔ [Logic: Check AMC Status] ➔ [Action: Assign Tech] ➔ [Notify: WhatsApp]</div>
+          </div>
+        </div>`;
+      break;
+
+    /* 03 APP STORE & MARKETPLACE */
+    case 'appstore':
+
+container.innerHTML=`
+
+<div class="p-4 space-y-4">
+
+<div class="flex items-center justify-between">
+<div>
+<h2 class="text-lg font-bold text-white">
+📦 ReliOS Marketplace
+</h2>
+<div class="text-xs text-slate-400">
+Universal Package Manager
+</div>
+</div>
+
+<div class="text-right text-xs">
+<div class="text-cyan-400 font-semibold">
+Kernel v6
+</div>
+<div class="text-slate-500">
+Package Manager
+</div>
+</div>
+</div>
+
+
+<input
+class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-xs"
+placeholder="Search packages..."
+>
+
+
+<div class="flex gap-2 overflow-x-auto pb-2">
+
+<span class="px-3 py-1 rounded-full bg-cyan-500 text-black text-[10px] font-bold">
+All
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+⭐ Installed
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+⬇ Updates
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+🏢 Business
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+🤖 AI
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+🔌 Integrations
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+🎨 Themes
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+📊 Reports
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+⚙ Core
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+🧩 Plugins
+</span>
+
+<span class="px-3 py-1 rounded-full bg-slate-800 text-xs">
+📦 Industry
+</span>
+
+</div>
+
+
+<div class="grid lg:grid-cols-2 gap-4">
+
+${marketCard(
+"📹",
+"CCTV & Security Package",
+"2.0",
+"145 MB",
+[
+"Dashboard",
+"CRM",
+"Inventory",
+"Sales",
+"AMC",
+"Technicians",
+"Customers",
+"Reports",
+"AI",
+"WhatsApp",
+"QR Assets"
+],
+"Not Installed"
+)}
+
+${marketCard(
+"🏥",
+"Hospital Package",
+"1.0",
+"210 MB",
+[
+"Patients",
+"Doctors",
+"OPD",
+"IPD",
+"Billing",
+"Laboratory"
+],
+"Not Installed"
+)}
+
+${marketCard(
+"🏫",
+"School ERP",
+"1.0",
+"182 MB",
+[
+"Students",
+"Fees",
+"Attendance",
+"Exams",
+"Transport"
+],
+"Not Installed"
+)}
+
+${marketCard(
+"🏨",
+"Hotel ERP",
+"1.0",
+"172 MB",
+[
+"Rooms",
+"Booking",
+"Billing",
+"Housekeeping"
+],
+"Not Installed"
+)}
+
+${marketCard(
+"🛒",
+"Retail POS",
+"1.0",
+"120 MB",
+[
+"POS",
+"Inventory",
+"Barcode",
+"GST"
+],
+"Installed"
+)}
+
+${marketCard(
+"🚗",
+"Garage Management",
+"1.0",
+"135 MB",
+[
+"Vehicles",
+"Jobs",
+"Invoices",
+"Mechanics"
+],
+"Update Available"
+)}
+
+${marketCard(
+"☀",
+"Solar Business",
+"1.0",
+"118 MB",
+[
+"Projects",
+"Installations",
+"Warranty"
+],
+"Community"
+)}
+
+</div>
+
+</div>
+
+`;
+
+break;
+
+    /* 09 DOCUMENTS & SIGNATURE */
+    case 'docs':
+      container.innerHTML = `
+        <div class="p-4 space-y-4">
+          <h3 class="text-sm font-semibold text-slate-200">Document Studio & E-Signature Pad</h3>
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+            <div class="font-bold text-slate-200 text-xs">ANNUAL SERVICE CONTRACT</div>
+            <canvas id="sigCanvas" width="400" height="100" class="border border-slate-700 rounded-xl bg-slate-900 cursor-crosshair"></canvas>
+            <button onclick="ReliOS.clearSignature()" class="px-2 py-1 bg-slate-800 text-slate-400 rounded text-[10px]">Clear Pad</button>
+          </div>
+        </div>`;
+      setTimeout(() => {
+        const canvas = $('#sigCanvas');
+        if(!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let drawing = false;
+        canvas.addEventListener('mousedown', () => drawing = true);
+        canvas.addEventListener('mouseup', () => { drawing = false; ctx.beginPath(); });
+        canvas.addEventListener('mousemove', (e) => {
+          if(!drawing) return;
+          const rect = canvas.getBoundingClientRect();
+          ctx.lineWidth = 2; ctx.strokeStyle = '#06b6d4';
+          ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top); ctx.stroke();
+        });
+      }, 100);
+      break;
+
+    default:
+      container.innerHTML = `<div class="p-4 text-slate-400 text-xs">Module details loaded for ${escapeHtml(appId)}.</div>`;
+  }
+}
+
+/* ---------------- GLOBAL RELIOS CONTROLLER ---------------- */
+window.ReliOS = {
+  openApp(appId) { openWindow(appId); },
+  closeWindow(winId) {
+    const winEl = $(`#win-${winId}`);
+    if(winEl) winEl.remove();
+    delete State.activeWindows[winId];
+    updateTaskbar();
+  },
+  toggleWindowMinimize(winId) {
+    const winObj = State.activeWindows[winId];
+    const winEl = $(`#win-${winId}`);
+    if(winObj && winEl) {
+      winObj.minimized = !winObj.minimized;
+      winEl.classList.toggle('hidden', winObj.minimized);
+      if(!winObj.minimized) bringToFront(winId);
+      updateTaskbar();
+    }
+  },
+  logAudit(action, details) {
+    const entry = { id: uid('log'), time: new Date().toLocaleTimeString(), action, details };
+    DB.put('audit_logs', entry);
+    const list = $('#notifList');
+    if(list) {
+      const item = document.createElement('div');
+      item.className = 'p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50';
+      item.innerHTML = `<div class="font-semibold text-cyan-400 text-[11px]">${escapeHtml(action)}</div><div class="text-slate-300 text-[10px] mt-0.5">${escapeHtml(details)}</div>`;
+      list.prepend(item);
+    }
+  },
+  setIndustryProfile(profileName){
+
+    const packageName = PACKAGE_MAP[profileName];
+
+    if(!packageName || !State.installedPackages[packageName]){
+
+        toast(profileName + " Package is not installed");
+
+        this.openApp("appstore");
+
+        return;
+
+    }
+
+    State.activeIndustry = profileName;
+
+    $("#currentIndustryBadge").textContent =
+        "🏷️ " + profileName;
+
+    $("#industryModal").classList.add("hidden");
+
+    toast("Loaded " + profileName);
+
+    this.logAudit(
+        "Industry Loaded",
+        profileName
+    );
+
+    Object.keys(State.activeWindows).forEach(winId=>{
+
+        populateAppContent(
+            winId,
+            "#body-"+winId
+        );
+
+    });
+
+},
+
+  switchVirtualDesktop(num) {
+    State.activeVirtualDesktop = num;
+    $('#vdesk-1').className = num === 1 ? "px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium" : "px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400";
+    $('#vdesk-2').className = num === 2 ? "px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-medium" : "px-2 py-0.5 rounded hover:bg-slate-800 text-slate-400";
+    toast(`Switched to Virtual Desktop ${num}`);
+  },
+  runRAEWorkflow() {
+    toast('Executing Automation Workflow...');
+    this.logAudit('Workflow Executed', State.activeIndustry);
+  },
+  
+installPackage(packageName){
+
+    toast("Downloading Package...");
+
+    const steps=[
+
+        "Downloading Package",
+        "Verifying Signature",
+        "Extracting Package",
+        "Installing Database",
+        "Installing Tables",
+        "Installing APIs",
+        "Installing Permissions",
+        "Installing Reports",
+        "Installing Templates",
+        "Installing AI",
+        "Installing Widgets",
+        "Installing Dashboard",
+        "Registering Module",
+        "Creating Desktop Icon",
+        "Creating Start Menu",
+        "Package Ready"
+
+    ];
+
+    steps.forEach((step,index)=>{
+
+        setTimeout(()=>{
+
+            toast(step);
+
+            this.logAudit(
+                "Package Manager",
+                step+" : "+packageName
+            );
+
+        },index*700);
+
+    });
+
+    /* Package Installed */
+
+    setTimeout(()=>{
+
+        State.installedPackages[packageName]=true;
+savePackages();
+        
+
+        const profileName = Object.keys(PACKAGE_MAP).find(
+    key => PACKAGE_MAP[key] === packageName
+) || packageName;
+
+        State.activeIndustry=profileName;
+
+        $('#currentIndustryBadge').textContent=
+        "🏷️ "+profileName;
+
+        $('#industryModal').classList.add("hidden");
+
+        toast(profileName+" Installed Successfully");
+        
+if(State.activeWindows["appstore"]){
+
+    populateAppContent(
+        "appstore",
+        "#body-appstore"
+    );
+
+}
+
+        this.logAudit(
+            "Package Installed",
+            profileName
+        );
+
+        Object.keys(State.activeWindows).forEach(winId=>{
+            populateAppContent(winId,`#body-${winId}`);
+        });
+
+    },steps.length*700);
+
+},
+  
+  addCustomerPrompt() {
+    const name = prompt('Lead / Customer Name:');
+    if(name) { toast('Lead Added'); }
+  },
+  sendAIMessage() {
+    const input = $('#aiInput'), chat = $('#aiChatBox');
+    if(!input || !input.value.trim() || !chat) return;
+    const userText = input.value;
+    chat.innerHTML += `<div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 ml-auto max-w-[80%] text-right text-xs text-cyan-200">${escapeHtml(userText)}</div>`;
+    input.value = '';
+    setTimeout(() => {
+      chat.innerHTML += `<div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 max-w-[80%] text-xs text-slate-200"><div class="font-semibold text-cyan-400 text-[11px] mb-1">✨ AI Center</div>Contextual output for <strong>${escapeHtml(State.activeIndustry)}</strong> regarding "${escapeHtml(userText)}".</div>`;
+      chat.scrollTop = chat.scrollHeight;
+    }, 400);
+  },
+  clearSignature() {
+    const canvas = $('#sigCanvas');
+    if(canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+/* ---------------- KERNEL INIT & EVENT BINDINGS ---------------- */
+function initClock() {
+  setInterval(() => {
+    const el = $('#sysClock');
+    if(el) el.textContent = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  }, 1000);
+}
+
+function bindEvents() {
+  $('#btnStart').onclick = (e) => { e.stopPropagation(); $('#startMenu').classList.toggle('hidden'); };
+  window.addEventListener('click', () => $('#startMenu').classList.add('hidden'));
+  $('#startMenu').onclick = (e) => e.stopPropagation();
+
+  $('#btnNotifToggle').onclick = () => $('#notifCenter').classList.toggle('translate-x-full');
+  $('#btnClearNotifs').onclick = () => $('#notifList').innerHTML = '';
+
+  $('#btnWidgets').onclick = () => $('#widgetsPanel').classList.toggle('hidden');
+
+  $('#btnIndustrySwitch').onclick = () => {
+    renderIndustryTaxonomyModal();
+    $('#industryModal').classList.remove('hidden');
+  };
+  $('#closeIndustryModal').onclick = () => $('#industryModal').classList.add('hidden');
+
+  $('#industrySearchInput').oninput = (e) => {
+    const q = e.target.value.toLowerCase();
+    $$('#industryTaxonomyList button').forEach(btn => {
+      btn.style.display = btn.textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+    });
+  };
+
+  window.addEventListener('keydown', (e) => {
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      $('#cmdModal').classList.remove('hidden');
+      $('#cmdInput').focus();
+    }
+  });
+  $('#cmdTrigger').onclick = () => { $('#cmdModal').classList.remove('hidden'); $('#cmdInput').focus(); };
+  $('#cmdModal').onclick = (e) => { if(e.target.id === 'cmdModal') $('#cmdModal').classList.add('hidden'); };
+
+  $('#btnLogin').onclick = () => {
+    State.userRole = $('#loginRole').value;
+    $('#userBadge').textContent = State.userRole;
+    $('#loginScreen').classList.add('hidden');
+    toast(`Authenticated as ${State.userRole}`);
+  };
+
+  $('#btnLock').onclick = () => $('#loginScreen').classList.remove('hidden');
+  $('#btnAIQuick').onclick = () => openWindow('ai_center');
+  $('#btnMinimizeAll').onclick = () => {
+    Object.keys(State.activeWindows).forEach(id => {
+      State.activeWindows[id].minimized = true;
+      $(`#win-${id}`)?.classList.add('hidden');
+    });
+    updateTaskbar();
+  };
+}
+
+function bootSequence() {
+  const bootScreen = $('#bootScreen');
+  bootScreen.classList.remove('hidden');
+  bootScreen.classList.remove('opacity-0');
+  
+  const logs = ["Loading Kernel...", "Verifying License...", "Loading Industry Profiles...", "Mounting IndexedDB Storage...", "ReliOS Kernel Ready."];
+  let prog = 0;
+  
+  const timer = setInterval(() => {
+    prog += 20;
+    $('#bootProgress').style.width = prog + '%';
+    $('#bootLog').textContent = logs[Math.min(4, Math.floor(prog / 20))];
+    if(prog >= 100) {
+      clearInterval(timer);
+      bootScreen.classList.add('opacity-0');
+      setTimeout(() => bootScreen.classList.add('hidden'), 700);
+    }
+  }, 120);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderDesktopIcons();
+  renderStartMenu();
+  initClock();
+  bindEvents();
+  bootSequence();
+});
+
+})();
+</script>
 </body>
 </html>
